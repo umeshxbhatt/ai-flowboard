@@ -1,0 +1,32 @@
+{
+  "name": "flowbaord-backend",
+  "version": "1.0.0",
+  "description": "Backend for the AI-powered Kanban baord (PERN + Socket.IO + Gemini",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "db:init": "node src/db/init.js",
+    "db:seed": "node src/db/seed.js"
+  },
+  "keywords": [
+    "kanban",
+    "pern",
+    "socket.io",
+    "gemini",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^2.18.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.0",
+    "socket.io": "^4.8.3"
+  }
+}
