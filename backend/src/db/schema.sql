@@ -1,6 +1,9 @@
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto"; 
+-- generate unique id numbers
 
--- users tabl
+-- Tables 
+
+-- users 
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -10,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- boards table
+-- boards 
 CREATE TABLE IF NOT EXISTS boards (
     id UUID PRIMARY KEY gen_random_uuid(),
     title TEXT NOT NULL,
