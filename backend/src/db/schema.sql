@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- boards 
 CREATE TABLE IF NOT EXISTS boards (
-    id UUID PRIMARY KEY gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     description TEXT,
     color TEXT DEFAULT '#6366f1',
