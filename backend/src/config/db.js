@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 
 const pool = new Pool({
+  // creates PostgreSQL connection pool
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
   max: 10,
@@ -8,9 +9,14 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 
+// listening for pool errors
 pool.on("error", (err) => {
   console.error("Unexpected PostgreSQL pool error: ", err);
 });
+
+// const query = (text, params) => {
+//     return pool.query(text, params);
+// };
 
 const query = (text, params) => pool.query(text, params);
 
