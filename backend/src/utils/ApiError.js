@@ -21,3 +21,5 @@ class ApiError extends Error {
     return new ApiError(409, msg);
   }
 }
+
+export default ApiError;
