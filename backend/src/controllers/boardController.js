@@ -19,3 +19,10 @@ const listBoards = asyncHandler(async (req, res) => {
   );
   res.json({ boards: rows });
 });
+
+const createBoard = asyncHandler(async (req, res) => {
+  const title = (req.body.title || "").trim();
+  const description = (req.body.description || "").trim() || null;
+  const color = req.body.color || "#6366f1";
+  if (!title) throw ApiError.badRequest("Board title is required");
+});
