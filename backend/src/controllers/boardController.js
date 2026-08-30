@@ -86,3 +86,22 @@ const getBoard = asyncHandler(async (req, res) => {
     role: req.board.role,
   });
 });
+
+// Update Board - edits the title, description & color
+const updateBoard = asyncHandler(async (req, res) => {
+  const { title, description, color } = req.body;
+  const { rows } = await query(
+    `UPDATE boards
+      SET title = COALESCE($2, title),
+          description = COALESCE($3, description),
+          color = COALESCE($4, color),
+          updated_at = now()
+    WHERE id = $1
+    RETURNING *`,
+    [req.board.id, title ?? null, description ?? null, color ?? null],
+  );
+  emitToBoard(req.board.id, "board:updated", rows[0]);
+  res.json({ board: rows[0] });
+});
+
+// Dlete Board - only if you are owner, delete board removes the board
