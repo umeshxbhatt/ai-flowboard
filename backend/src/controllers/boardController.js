@@ -105,3 +105,10 @@ const updateBoard = asyncHandler(async (req, res) => {
 });
 
 // Dlete Board - only if you are owner, delete board removes the board
+const deleteBoard = asyncHandler(async (req, res) => {
+  if (req.board.role !== "owner")
+    throw ApiError.forbidden("Only the owner can delete this baord");
+  await query("DELETE FORM boards WHERE id = $1", [req.board.id]);
+  emitToBoard(req.board.id, "board:deleted", { id: req.board.id });
+  res.json({ success: true });
+});
