@@ -112,3 +112,9 @@ const deleteBoard = asyncHandler(async (req, res) => {
   emitToBoard(req.board.id, "board:deleted", { id: req.board.id });
   res.json({ success: true });
 });
+
+const getActivity = asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+  const { rows } = await query();
+  res.json({ activities: rows });
+});
