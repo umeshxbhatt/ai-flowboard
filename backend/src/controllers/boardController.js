@@ -108,13 +108,21 @@ const updateBoard = asyncHandler(async (req, res) => {
 const deleteBoard = asyncHandler(async (req, res) => {
   if (req.board.role !== "owner")
     throw ApiError.forbidden("Only the owner can delete this baord");
-  await query("DELETE FORM boards WHERE id = $1", [req.board.id]);
+  await query("DELETE FROM boards WHERE id = $1", [req.board.id]);
   emitToBoard(req.board.id, "board:deleted", { id: req.board.id });
   res.json({ success: true });
 });
 
 const getActivity = asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
-  const { rows } = await query();
+  const { rows } = await query(
+    `SELECT act.*, u.name AS user_name, u.avatar_url AS user_avatar
+    FROM activities act
+    LEFT JOIN users u ON u.id = act.user_id
+    WHERE act.board_id = $1
+    ORDER BY act.created_at DESC
+    LIMIT $2`,
+    [req.board.id, limit],
+  );
   res.json({ activities: rows });
 });
