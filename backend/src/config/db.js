@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 
-const pool = new Pool({
+export const pool = new Pool({
   // creates PostgreSQL connection pool
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -18,20 +18,21 @@ pool.on("error", (err) => {
 //     return pool.query(text, params);
 // };
 
-const query = (text, params) => pool.query(text, params);
+export const query = (text, params) => pool.query(text, params);
 
-const withTransaction = async (callback) => {
-  const client = await pool.connect();
+export const withTransaction = async (callback) => {
+  const client = await pool.connect(); // give me one database connection from pool and store it in client
   try {
+    await client.query("BEGIN");
+
     const result = await callback(client);
+
     await client.query("COMMIT");
     return result;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
   } finally {
-    client.release();
+    client.release(); // We borrowed a connection now return this connection to the pool
   }
 };
-
-export { pool, query, withTransaction };
