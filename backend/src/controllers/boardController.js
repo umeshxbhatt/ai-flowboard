@@ -2,6 +2,7 @@ import { query, withTransaction } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { emitToBoard, logActivity } from "../realtime";
+import { use } from "react";
 
 const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Done"];
 
@@ -125,4 +126,38 @@ const getActivity = asyncHandler(async (req, res) => {
     [req.board.id, limit],
   );
   res.json({ activities: rows });
+});
+
+const addMember = asyncHandler(async (req, res) => {
+  if (req.board.role !== "owner" && req.board.role !== "admin")
+    throw ApiError.forbidden("Only the owners or admins can add members");
+
+  const email = (req.body.email || "").trim().toLowerCase();
+  if (!email) throw ApiError.badRequest("Member email is required");
+
+  const role = req.body.role === "admin" ? "admin" : "member";
+
+  const userRes = await query(
+    "SELECT id, name, email, avatar_url FROM users WHERE email = $1",
+    [email],
+  );
+  const user = userRes.rows[0];
+  if (!user) throw ApiError.notFound("No user found with that email");
+
+  await query(
+    `INSERT INTO board_members (board_id, user_id, role) 
+    VALUES ($1, $2, $3) 
+    ON CONFLICT (board_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+    [req.board.id, user.id, role],
+  );
+
+  await logActivity({
+    boardId: req.board.id,
+    userId: req.user.id,
+    action: "member.added",
+    message: `${req.user.name} added ${user.name} to the board`,
+    metadata: { memberId: user.id },
+  });
+
+  res.status(201).json({ member: { ...user, role } });
 });
