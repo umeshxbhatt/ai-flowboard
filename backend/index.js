@@ -1,5 +1,5 @@
-import "dotenv/config";
-import express from "express";
+import "dotenv/config"; // loads .env files
+import express from "express"; 
 import cors from "cors";
 import apiRoutes from "./src/routes/index.js";
 import {
@@ -7,7 +7,7 @@ import {
   notFoundHandler,
 } from "./src/middleware/errorHandler.js";
 
-const app = express();
+const app = express(); // create express app
 
 app.use(
   cors({
@@ -16,13 +16,13 @@ app.use(
   }),
 );
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "1mb" })); // If the client sends JSON, parse it so I can access it through req.body
 
 app.get("/", (_req, res) =>
   res.json({ name: "AI Kanban Board API", status: "running" }),
 );
 
-app.use("/api", apiRoutes);
+app.use("/api", apiRoutes); // All routes inside apiRoutes should start with /api
 
 app.use(notFoundHandler);
 app.use(errorHandler);
