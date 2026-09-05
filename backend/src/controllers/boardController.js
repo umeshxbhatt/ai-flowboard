@@ -161,3 +161,19 @@ const addMember = asyncHandler(async (req, res) => {
 
   res.status(201).json({ member: { ...user, role } });
 });
+
+const removeMember = asyncHandler(async (req, res) => {
+  if (req.board.role !== "owner" && req.board.role !== "admin")
+    throw ApiError.forbidden("Only owners or admins can remove members");
+
+  const { userId } = req.params;
+  if (userId === req.board.owner_id)
+    throw ApiError.badRequest("Board owner cannot be removed");
+
+  await query(
+    "DELETE FROM board_members WHERE board_id = $1 AND user_id = $2",
+    [boardId, userId],
+  );
+
+  res.json({ success: true });
+});
