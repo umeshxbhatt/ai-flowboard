@@ -1,5 +1,5 @@
 import "dotenv/config"; // loads .env files
-import express from "express"; 
+import express from "express";
 import cors from "cors";
 import apiRoutes from "./src/routes/index.js";
 import {
