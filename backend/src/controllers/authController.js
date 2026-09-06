@@ -1,10 +1,10 @@
-import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs"; // password hashing
 import { query } from "../config/db.js";
 import { signToken } from "../utils/jwt.js";
 import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // email regex to check whether the email has a basic valid structure
 
 const publicUser = (u) => ({
   id: u.id,
@@ -46,23 +46,28 @@ export const register = asyncHandler(async (req, res) => {
     [name, email, password_hash],
   );
 
-  const user = rows[0];
+  const user = rows[0]; // the newly created user
+
   const token = signToken({ id: user.id, email: user.email, name: user.name });
+
   res.status(201).json({ user: publicUser(user), token });
 });
 
 // LOGIN
 export const login = asyncHandler(async (req, res) => {
+  // get email and password from request body
   const email = (req.body.email || "").trim().toLowerCase();
   const { password } = req.body;
 
-  // check email & password
+  // check email & password exists
   if (!email || !password)
     throw ApiError.badRequest("Email and password are required");
 
   // check user email exists in  db
-  const { rows } = await query("SELECT * FORM users WHERE email = $1", [email]);
-  const user = rows[0];
+  const { rows } = await query("SELECT * FROM users WHERE email = $1", [email]); // find user by email in the database
+
+  const user = rows[0]; // get the first user from the result (there should be only one user with that email)
+
   if (!user) throw ApiError.unauthorized("Invalid email or password");
 
   // check entered password is equal to hashed password saved in db
@@ -70,6 +75,7 @@ export const login = asyncHandler(async (req, res) => {
   if (!valid) throw ApiError.unauthorized("Invalid email or password");
 
   const token = signToken({ id: user.id, email: user.email, name: user.name });
+
   res.status(201).json({ user: publicUser(user), token });
 });
 
@@ -77,7 +83,8 @@ export const me = asyncHandler(async (req, res) => {
   const { rows } = await query(
     "SELECT id, name, email, avatar_url, created_at FROM users WHERE id = $1",
     [req.user.id],
-  );
-  if (!rows.length) throw ApiError.notFound("User not found");
+  ); // req.user.id tells which user is making the request
+
+  if (!rows.length) throw ApiError.notFound("User not found"); // if there is no user with that id, return 404
   res.json({ user: rows[0] });
 });
