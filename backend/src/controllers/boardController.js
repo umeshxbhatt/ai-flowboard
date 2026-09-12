@@ -1,11 +1,11 @@
 import { query, withTransaction } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { emitToBoard, logActivity } from "../realtime";
-import { use } from "react";
+import { emitToBoard, logActivity } from "../realtime/index.js";
 
 const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Done"];
 
+// List Boards - returns all boards the user is a member of, with task and member counts
 export const listBoards = asyncHandler(async (req, res) => {
   const { rows } = await query(
     `SELECT b.*,
@@ -13,7 +13,8 @@ export const listBoards = asyncHandler(async (req, res) => {
     (SELECT COUNT(*) FROM tasks t WHERE t.board_id = b.id) AS task_count,
     (SELECT COUNT(*) FROM board_members m WHERE m.board_id = b.id) AS member_count
     FROM boards b
-    LEFT JOIN board_members mm ON mm.board_id = bid AND mm.user_id = $1
+    LEFT JOIN board_members mm 
+      ON mm.board_id = b.id AND mm.user_id = $1
     WHERE b.owner_id = $1 OR mm.user_id = $1
     ORDER BY b.updated_at DESC`,
     [req.user.id],
@@ -27,6 +28,7 @@ export const createBoard = asyncHandler(async (req, res) => {
   const color = req.body.color || "#6366f1";
   if (!title) throw ApiError.badRequest("Board title is required");
 
+  // Creates the board
   const board = await withTransaction(async (client) => {
     const { rows } = await client.query(
       `INSERT INTO boards (title, description, color, owner_id)
@@ -34,28 +36,32 @@ export const createBoard = asyncHandler(async (req, res) => {
       [title, description, color, req.user.id],
     );
 
-    const b = rows[0];
+    const b = rows[0]; // the newly created board
 
+    // Make the user who created the board as owner of the board
     await client.query(
-      `INSERT INTO board_memebers (board_id, user_id, role) VALUES ($1, $2, 'owner')`,
+      `INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'owner')`,
       [b.id, req.user.id],
     );
 
+    // Create default columns for the board
     for (let i = 0; i < DEFAULT_COLUMNS.length; i++) {
       await client.query(
         `INSERT INTO columns (board_id, title, position) VALUES ($1, $2, $3)`,
         [b.id, DEFAULT_COLUMNS[i], (i + 1) * 1000],
       );
     }
-    return b;
+
+    return b; // return the newly created board
   });
 
   res.status(201).json({ board });
 });
 
 export const getBoard = asyncHandler(async (req, res) => {
-  const boardId = req.body.id;
+  const boardId = req.board.id;
 
+  // Fetch board, columns, tasks, and members in parallel using Promise.all for efficiency
   const [boardRes, columnsRes, tasksRes, membersRes] = await Promise.all([
     query("SELECT * FROM boards WHERE id = $1", [boardId]),
     query("SELECT * FROM columns WHERE board_id = $1 ORDER BY position ASC", [
@@ -63,7 +69,9 @@ export const getBoard = asyncHandler(async (req, res) => {
     ]),
     query(
       `SELECT t.*,
-      a.name AS assignee_name, a.email AS assignee_email, a.avatar_url AS assignee_avatar
+      a.name AS assignee_name, 
+      a.email AS assignee_email, 
+      a.avatar_url AS assignee_avatar
       FROM tasks t
       LEFT JOIN users a ON a.id = t.assignee_id
       WHERE t.board_id = $1
@@ -105,17 +113,19 @@ export const updateBoard = asyncHandler(async (req, res) => {
   res.json({ board: rows[0] });
 });
 
-// Dlete Board - only if you are owner, delete board removes the board
+// Delete Board - only if you are owner, delete board removes the board
 export const deleteBoard = asyncHandler(async (req, res) => {
   if (req.board.role !== "owner")
-    throw ApiError.forbidden("Only the owner can delete this baord");
+    throw ApiError.forbidden("Only the owner can delete this board");
   await query("DELETE FROM boards WHERE id = $1", [req.board.id]);
   emitToBoard(req.board.id, "board:deleted", { id: req.board.id });
   res.json({ success: true });
 });
 
-export const getActivity = asyncHandler(async (req, res) => {
+export const getActivity = asyncHandler(async (req, res) => { 
+  // Limit the number of activities returned to a maximum of 100, defaulting to 30 if not specified
   const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+  
   const { rows } = await query(
     `SELECT act.*, u.name AS user_name, u.avatar_url AS user_avatar
     FROM activities act
