@@ -1,6 +1,7 @@
+import { query } from "../config/db";
 import { emitToBoard } from "../realtime";
-import ApiError from "../utils/ApiError";
-import { asyncHandler } from "../utils/asyncHandler";
+import ApiError from "../utils/ApiError";s
+import asyncHandler from "../utils/asyncHandler";
 
 export const createColumn = asyncHandler(async (req, res) => {
   const title = (req.body.title || "").trim();
@@ -17,7 +18,7 @@ export const createColumn = asyncHandler(async (req, res) => {
     [req.board.id, title, posRes.rows[0].pos],
   );
 
-  emittoBoard(req.board.id, "column_created", rows[0]);
+  emitToBoard(req.board.id, "column_created", rows[0]);
   res.status(201).json({ column: rows[0] });
 });
 
@@ -32,7 +33,7 @@ export const updateColumn = asyncHandler(async (req, res) => {
     [req.params.columnId, req.board.id, title ?? null, position ?? null],
   );
   if (!rows.length) throw ApiError.notFound("Column not found");
-  emittoBoard(req.board.id, "column:updated", rows[0]);
+  emitToBoard(req.board.id, "column:updated", rows[0]);
   res.json({ column: rows[0] });
 });
 
