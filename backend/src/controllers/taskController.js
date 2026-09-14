@@ -25,7 +25,7 @@ const ensureColumnInBoard = async (columnId, boardId) => {
 /*
   Fetch one task with assignee information.
 */
-export const fetchTask = async (taskID) => {
+export const fetchTask = async (taskId) => {
   const { rows } = await query(
     `SELECT
        t.*,
@@ -208,11 +208,7 @@ export const moveTask = asyncHandler(async (req, res) => {
   if (!prevRes.rows.length) throw ApiError.notFound("Task not found");
   const movedColumns = prevRes.rows[0].column_id !== column_id;
 
-  /*
-      The task is effectively leaving its old column
-      and moving into the target column.
-    */
-  const { rows } = await client.query(
+  const { rows } = await query(
     `UPDATE tasks
        SET column_id = $3,
            position = $4,

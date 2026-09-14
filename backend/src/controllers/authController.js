@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs"; // password hashing
 import { query } from "../config/db.js";
 import { signToken } from "../utils/jwt.js";
 import ApiError from "../utils/ApiError.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // email regex to check whether the email has a basic valid structure
 
