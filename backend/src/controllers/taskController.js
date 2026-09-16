@@ -5,10 +5,7 @@ import { emitToBoard, logActivity } from "../realtime/index.js";
 
 const PRIORITIES = ["low", "medium", "high", "urgent"];
 
-/*
-  Make sure the requested column belongs to the requested board.
-  Returns the column if it exists.
-*/
+// Make sure the requested column belongs to the requested board.
 const ensureColumnInBoard = async (columnId, boardId) => {
   const { rows } = await query(
     `SELECT id
@@ -22,9 +19,7 @@ const ensureColumnInBoard = async (columnId, boardId) => {
   }
 };
 
-/*
-  Fetch one task with assignee information.
-*/
+// Fetch one task with assignee information.
 export const fetchTask = async (taskId) => {
   const { rows } = await query(
     `SELECT
@@ -40,9 +35,7 @@ export const fetchTask = async (taskId) => {
   return rows[0];
 };
 
-/*
-  List all tasks for the current board.
-*/
+// List all tasks for the current board.
 export const listTasks = asyncHandler(async (req, res) => {
   const filters = ["t.board_id = $1"];
   const params = [req.board.id];
@@ -85,9 +78,6 @@ export const listTasks = asyncHandler(async (req, res) => {
   res.json({ tasks: rows });
 });
 
-/*
-  Create a new task.
-*/
 export const createTask = asyncHandler(async (req, res) => {
   const {
     column_id,
@@ -151,9 +141,6 @@ export const createTask = asyncHandler(async (req, res) => {
   res.status(201).json({ task });
 });
 
-/*
-  Update task details.
-*/
 export const updateTask = asyncHandler(async (req, res) => {
   const { title, description, priority, due_date, assignee_id } = req.body;
 
@@ -188,9 +175,7 @@ export const updateTask = asyncHandler(async (req, res) => {
   res.json({ task });
 });
 
-/*
-  Move a task to another column / position.
-*/
+// Move a task to another column / position.
 export const moveTask = asyncHandler(async (req, res) => {
   const { column_id, position } = req.body;
 
@@ -236,9 +221,6 @@ export const moveTask = asyncHandler(async (req, res) => {
   res.json({ task });
 });
 
-/*
-  Delete task.
-*/
 export const deleteTask = asyncHandler(async (req, res) => {
   const { rows } = await query(
     `DELETE FROM tasks
