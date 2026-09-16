@@ -13,6 +13,7 @@ export const generateTasks = asyncHandler(async (req, res) => {
   const goal = (req.body.goal || "").trim();
   if (!goal) throw ApiError.badRequest("A project goal is required");
 
+  // clamping
   const count = Math.min(Math.max(parseInt(req.body.count, 10) || 6, 1), 15);
 
   // Always get suggestions from AI first
