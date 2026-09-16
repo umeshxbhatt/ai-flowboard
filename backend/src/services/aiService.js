@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import ApiError from "../utils/ApiError.js";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 let client = null;
 
@@ -33,32 +33,49 @@ const extractJson = (text) => {
   }
 };
 
-const runPrompt = async (prompt) => {
-  try {
-    const response = await getClient().models.generateContent({
-      model: MODEL,
-      contents: prompt,
-    });
-    return response.text;
-  } catch (err) {
-    if (err.isApiError) throw err;
+const runPrompt = async (prompt, retries = 3) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await getClient().models.generateContent({
+        model: MODEL,
+        contents: prompt,
+      });
+      return response.text;
+    } catch (err) {
+      if (err.isApiError) throw err;
 
-    const status = err.status || err.statusCode;
-    if (status === 429)
+      const status = err.status || err.statusCode;
+
+      // Identify retryable errors. Sometimes the status is inside the error message JSON.
+      let isRetryable = status === 429 || status === 503;
+      if (!isRetryable && err.message) {
+        if (err.message.includes('"code":503') || err.message.includes('"code":429')) {
+          isRetryable = true;
+        }
+      }
+
+      if (isRetryable && attempt < retries) {
+        console.warn(`Gemini API busy (attempt ${attempt}/${retries}). Retrying in ${attempt}s...`);
+        await new Promise((res) => setTimeout(res, attempt * 1000));
+        continue;
+      }
+
+      if (status === 429 || (err.message && err.message.includes('"code":429')))
+        throw new ApiError(
+          429,
+          "AI quota exceeded. Check your Gemini plan/billing and try again later.",
+        );
+      if (status === 400 || status === 401 || status === 403)
+        throw new ApiError(
+          503,
+          "AI request rejected - verify your GEMINI_API_KEY is valid.",
+        );
+      console.error("Gemini request failed:", err.message);
       throw new ApiError(
-        429,
-        "AI quota exceeded. Check your Gemini plan/billing and try agian later.",
+        502,
+        "The AI service is temporarily unavailable. Please try again.",
       );
-    if (status === 400 || status === 401 || status === 403)
-      throw new ApiError(
-        503,
-        "AI request rejected - verify your GEMINI_API_KEY is valid.",
-      );
-    console.error("Gemini request failed:", err.message);
-    throw new ApiError(
-      502,
-      "The AI service is temporarily unavailable. Please try agian.",
-    );
+    }
   }
 };
 
