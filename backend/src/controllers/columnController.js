@@ -1,7 +1,7 @@
-import { query } from "../config/db";
-import { emitToBoard } from "../realtime";
-import ApiError from "../utils/ApiError";s
-import asyncHandler from "../utils/asyncHandler";
+import { query } from "../config/db.js";
+import { emitToBoard } from "../realtime/index.js";
+import ApiError from "../utils/ApiError.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 export const createColumn = asyncHandler(async (req, res) => {
   const title = (req.body.title || "").trim();
