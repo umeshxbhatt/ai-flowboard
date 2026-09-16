@@ -10,11 +10,10 @@ import * as aiService from "../services/aiService.js";
   If 'col' is provided, inserts tasks into that column and broadcasts.
 */
 export const generateTasks = asyncHandler(async (req, res) => {
-  const { goal } = (req.body.goal || "").trim();
+  const goal = (req.body.goal || "").trim();
   if (!goal) throw ApiError.badRequest("A project goal is required");
 
-  // Clamp count between 1 and 15 (the max supported by AI) to prevent errors
-  const count = Math.min(Math.max(parseInt(req.body.count, 10) || 6, 1), 15); // what is this ?
+  const count = Math.min(Math.max(parseInt(req.body.count, 10) || 6, 1), 15);
 
   // Always get suggestions from AI first
   const suggestions = await aiService.generateTasks(goal, count);
@@ -78,10 +77,10 @@ export const generateTasks = asyncHandler(async (req, res) => {
     // Using fetchTask pattern if needed, but since we just inserted, 
     // returning the raw row is usually fine unless we need assignee joins.
     createdTasks.push(rows[0]);
-  }
 
-  // Broadcast event
-  emitToBoard(boardId, "tasks:created", rows[0]);
+    // Broadcast event
+    emitToBoard(boardId, "tasks:created", rows[0]);
+  }
 
   // Log activity
   if (req.user) {
