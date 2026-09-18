@@ -12,7 +12,7 @@
 //      That's the only file you touch to go live.
 // ----------------------------------------------------------------------------
 
-import * as mock from "./mockData";
+//import * as mock from "./mockData";
 
 const TOKEN_KEY = "kanban_token";
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
@@ -22,7 +22,7 @@ export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 /* ============================================================================
  * REAL API  —  uncomment this whole block once the backend is built
  * ==========================================================================*/
-/*
+
 import axios from "axios";
 
 const api = axios.create({
@@ -102,13 +102,14 @@ export const aiApi = {
     api.post(`/boards/${boardId}/ai/breakdown`, data).then((r) => r.data.subtasks),
   summary: (boardId) => api.post(`/boards/${boardId}/ai/summary`).then((r) => r.data.summary),
 };
-*/
+
 
 /* ============================================================================
  * MOCK API  —  delete this block once the REAL API above is live.
  * Each method mirrors the real one's return shape, with a small delay so the
  * loading states still show.
  * ==========================================================================*/
+/*
 const delay = (ms = 350) => new Promise((res) => setTimeout(res, ms));
 
 export const authApi = {
@@ -220,4 +221,5 @@ export const aiApi = {
     return mock.aiSummary();
   },
 };
+*/
 /* ======================================================================== */
