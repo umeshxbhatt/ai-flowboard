@@ -39,8 +39,8 @@ router.patch("/:boardId/tasks/:taskId/move", requireBoardAccess, taskController.
 router.delete("/:boardId/tasks/:taskId", requireBoardAccess, taskController.deleteTask);
 
 // AI Features
-router.post("/:boardId/ai/generate", requireBoardAccess, aiController.generateTasks);
+router.post("/:boardId/ai/generate-tasks", requireBoardAccess, aiController.generateTasks);
 router.post("/:boardId/ai/breakdown", requireBoardAccess, aiController.breakdownTask);
-router.post("/:boardId/ai/summarize", requireBoardAccess, aiController.summarizeBoard);
+router.post("/:boardId/ai/summary", requireBoardAccess, aiController.summarizeBoard);
 
 export default router;
