@@ -13,7 +13,7 @@
 /* ============================================================================
  * REAL SOCKET  —  uncomment once the backend is built
  * ==========================================================================*/
-/*
+
 import { io } from "socket.io-client";
 import { getToken } from "./api";
 
@@ -43,12 +43,12 @@ export const connectSocket = () => {
 export const disconnectSocket = () => {
   if (socket) socket.disconnect();
 };
-*/
 
 /* ============================================================================
  * MOCK SOCKET  —  delete this block once the REAL SOCKET above is live.
  * A chainable no-op so `.on().off().emit()` all work and never throw.
  * ==========================================================================*/
+/*
 const noopSocket = {
   connected: false,
   on() {
@@ -71,4 +71,5 @@ const noopSocket = {
 export const getSocket = () => noopSocket;
 export const connectSocket = () => noopSocket;
 export const disconnectSocket = () => {};
+*/
 /* ======================================================================== */
