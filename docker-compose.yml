@@ -1,21 +1,5 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: flowboard
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+  # use postgres container for local database
 
   redis:
     image: redis:7-alpine
@@ -32,16 +16,10 @@ services:
     ports:
       - "5050:5050"
     environment:
-      - PORT=5050
-      - NODE_ENV=development
-      - CLIENT_URL=http://localhost:5173
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/flowboard
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-fallback_secret_for_local_dev_only_change_in_prod}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    env_file:
+      - ./backend/.env
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_started
     # Mount local code for hot-reloading
@@ -56,8 +34,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:5050/api
+    env_file:
+      - ./frontend/.env
     depends_on:
       - backend
     # Mount local code for hot-reloading
@@ -67,5 +45,4 @@ services:
     command: npm run dev -- --host
 
 volumes:
-  postgres_data:
   redis_data:
