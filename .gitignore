@@ -28,3 +28,5 @@ dist-ssr/
 .env
 .env.*
 !.env.example
+advanced_improvements.md
+implementation_plan.md
