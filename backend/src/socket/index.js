@@ -3,6 +3,20 @@ import { verifyToken } from "../utils/jwt.js";
 import { query } from "../config/db.js";
 import { setIo, boardRoom } from "../realtime/index.js";
 
+// import redis and adapter
+import { createClient } from "redis";
+import { createAdapter } from "@socket.io/redis-adapter";
+
+// Create two Redis clients (one for publishing messages, one for subscribing)
+export const pubClient = createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
+const subClient = pubClient.duplicate();
+
+// Connect the clients
+Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+  console.log("🚀 Redis adapter connected to Socket.io")
+}).catch((err) => {
+  console.log("Redis connection failed:", err);
+})
 
 // Helper function to check if a user has access to a board
 // (Mimics the logic from src/middleware/boardAccess.js)
@@ -37,6 +51,8 @@ export const initSocket = (server) => {
       methods: ["GET", "POST"],
       credentials: true,
     },
+    // add redis adapter
+    adapter: createAdapter(pubClient, subClient),
   });
 
   // 2. Socket Authentication (Middleware)
