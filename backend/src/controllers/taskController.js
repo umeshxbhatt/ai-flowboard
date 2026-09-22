@@ -1,3 +1,4 @@
+import { pubClient } from "../socket/index.js";
 import { query } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -138,6 +139,7 @@ export const createTask = asyncHandler(async (req, res) => {
     metadata: { taskId: task.id },
   });
 
+  await pubClient.del(`board:${req.board.id}`);
   res.status(201).json({ task });
 });
 
@@ -172,6 +174,7 @@ export const updateTask = asyncHandler(async (req, res) => {
 
   const task = await fetchTask(rows[0].id);
   emitToBoard(req.board.id, "task:updated", task);
+  await pubClient.del(`board:${req.board.id}`);
   res.json({ task });
 });
 
@@ -218,6 +221,7 @@ export const moveTask = asyncHandler(async (req, res) => {
       metadata: { taskId: task.id, columnId: task.column_id },
     });
   }
+  await pubClient.del(`board:${req.board.id}`);
   res.json({ task });
 });
 
@@ -239,5 +243,6 @@ export const deleteTask = asyncHandler(async (req, res) => {
     message: `${req.user.name} deleted "${rows[0].title}"`,
     metadata: { taskId: req.params.taskId },
   });
+  await pubClient.del(`board:${req.board.id}`);
   res.json({ success: true });
 });
