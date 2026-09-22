@@ -1,3 +1,4 @@
+import { pubClient } from "../socket/index.js";
 import { query, withTransaction } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -61,6 +62,17 @@ export const createBoard = asyncHandler(async (req, res) => {
 export const getBoard = asyncHandler(async (req, res) => {
   const boardId = req.board.id;
 
+  // check if the board is already in Redis RAM!
+  const cachedBoard = await pubClient.get(`board:${boardId}`);
+
+  if (cachedBoard) {
+    console.log("CACHE HIT 🚀");
+    // It's in RAM! Parse the JSON and return it instantly.
+    return res.status(200).json(JSON.parse(cachedBoard));
+  }
+
+  console.log("CACHE MISS 📭");
+
   // Fetch board, columns, tasks, and members in parallel using Promise.all for efficiency
   const [boardRes, columnsRes, tasksRes, membersRes] = await Promise.all([
     query("SELECT * FROM boards WHERE id = $1", [boardId]),
@@ -87,13 +99,18 @@ export const getBoard = asyncHandler(async (req, res) => {
       [boardId],
     ),
   ]);
-  res.json({
+  const boardData = {
     board: boardRes.rows[0],
     columns: columnsRes.rows,
     tasks: tasksRes.rows,
     members: membersRes.rows,
     role: req.board.role,
-  });
+  }
+
+  // store in redis RAM for 1 hour
+  await pubClient.setEx(`board:${boardId}`, 3600, JSON.stringify(boardData));
+
+  res.status(200).json(boardData);
 });
 
 // Update Board - edits the title, description & color
@@ -110,6 +127,7 @@ export const updateBoard = asyncHandler(async (req, res) => {
     [req.board.id, title ?? null, description ?? null, color ?? null],
   );
   emitToBoard(req.board.id, "board:updated", rows[0]);
+  await pubClient.del(`board:${req.board.id}`);
   res.json({ board: rows[0] });
 });
 
@@ -119,13 +137,14 @@ export const deleteBoard = asyncHandler(async (req, res) => {
     throw ApiError.forbidden("Only the owner can delete this board");
   await query("DELETE FROM boards WHERE id = $1", [req.board.id]);
   emitToBoard(req.board.id, "board:deleted", { id: req.board.id });
+  await pubClient.del(`board:${req.board.id}`);
   res.json({ success: true });
 });
 
-export const getActivity = asyncHandler(async (req, res) => { 
+export const getActivity = asyncHandler(async (req, res) => {
   // Limit the number of activities returned to a maximum of 100, defaulting to 30 if not specified
   const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
-  
+
   const { rows } = await query(
     `SELECT act.*, u.name AS user_name, u.avatar_url AS user_avatar
     FROM activities act
@@ -169,6 +188,7 @@ export const addMember = asyncHandler(async (req, res) => {
     metadata: { memberId: user.id },
   });
 
+  await pubClient.del(`board:${req.board.id}`);
   res.status(201).json({ member: { ...user, role } });
 });
 
@@ -185,5 +205,6 @@ export const removeMember = asyncHandler(async (req, res) => {
     [req.board.id, userId],
   );
 
+  await pubClient.del(`board:${req.board.id}`);
   res.json({ success: true });
 });
