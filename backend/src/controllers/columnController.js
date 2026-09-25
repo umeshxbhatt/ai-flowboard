@@ -1,4 +1,4 @@
-import { pubClient } from "../socket/index.js";
+import { safeDel } from "../utils/cache.js";
 import { query } from "../config/db.js";
 import { emitToBoard } from "../realtime/index.js";
 import ApiError from "../utils/ApiError.js";
@@ -19,8 +19,8 @@ export const createColumn = asyncHandler(async (req, res) => {
     [req.board.id, title, posRes.rows[0].pos],
   );
 
-  emitToBoard(req.board.id, "column_created", rows[0]);
-  await pubClient.del(`board:${req.board.id}`);
+  emitToBoard(req.board.id, "column:created", rows[0]);
+  await safeDel(`board:${req.board.id}`);
   res.status(201).json({ column: rows[0] });
 });
 
@@ -36,7 +36,7 @@ export const updateColumn = asyncHandler(async (req, res) => {
   );
   if (!rows.length) throw ApiError.notFound("Column not found");
   emitToBoard(req.board.id, "column:updated", rows[0]);
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ column: rows[0] });
 });
 
@@ -47,6 +47,6 @@ export const deleteColumn = asyncHandler(async (req, res) => {
   );
   if (!result.rowCount) throw ApiError.notFound("Column not found");
   emitToBoard(req.board.id, "column:deleted", { id: req.params.columnId });
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ success: true });
 });
