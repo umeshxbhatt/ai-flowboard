@@ -1,4 +1,4 @@
-import { pubClient } from "../socket/index.js";
+import { safeDel } from "../utils/cache.js";
 import { query } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -139,7 +139,7 @@ export const createTask = asyncHandler(async (req, res) => {
     metadata: { taskId: task.id },
   });
 
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.status(201).json({ task });
 });
 
@@ -150,31 +150,58 @@ export const updateTask = asyncHandler(async (req, res) => {
     throw ApiError.badRequest("Priority must be low, medium, high, or urgent");
   }
 
-  const { rows } = await query(
-    `UPDATE tasks
-     SET title = COALESCE($3, title),
-         description = COALESCE($4, description),
-         priority = COALESCE($5, priority),
-         due_date = COALESCE($6, due_date),
-         assignee_id = $7,
-         updated_at = now()
-     WHERE id = $1 AND board_id = $2
-     RETURNING id`,
-    [
-      req.params.taskId,
-      req.board.id,
-      title ?? null,
-      description ?? null,
-      priority ?? null,
-      due_date ?? null,
-      assignee_id === undefined ? null : assignee_id,
-    ],
-  );
+  // Build dynamic SET clause based only on fields provided in req.body
+  const updates = [];
+  const params = [req.params.taskId, req.board.id];
+
+  if (title !== undefined) {
+    const cleanTitle = (title || "").trim();
+    if (!cleanTitle) throw ApiError.badRequest("Task title cannot be empty");
+    params.push(cleanTitle);
+    updates.push(`title = $${params.length}`);
+  }
+
+  if (description !== undefined) {
+    params.push(description ? description.trim() : null);
+    updates.push(`description = $${params.length}`);
+  }
+
+  if (priority !== undefined) {
+    params.push(priority);
+    updates.push(`priority = $${params.length}`);
+  }
+
+  if (due_date !== undefined) {
+    params.push(due_date || null);
+    updates.push(`due_date = $${params.length}`);
+  }
+
+  if (assignee_id !== undefined) {
+    params.push(assignee_id || null);
+    updates.push(`assignee_id = $${params.length}`);
+  }
+
+  if (updates.length === 0) {
+    const task = await fetchTask(req.params.taskId);
+    if (!task) throw ApiError.notFound("Task not found");
+    return res.json({ task });
+  }
+
+  updates.push("updated_at = now()");
+
+  const sql = `
+    UPDATE tasks
+    SET ${updates.join(", ")}
+    WHERE id = $1 AND board_id = $2
+    RETURNING id
+  `;
+
+  const { rows } = await query(sql, params);
   if (!rows.length) throw ApiError.notFound("Task not found");
 
   const task = await fetchTask(rows[0].id);
   emitToBoard(req.board.id, "task:updated", task);
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ task });
 });
 
@@ -221,7 +248,7 @@ export const moveTask = asyncHandler(async (req, res) => {
       metadata: { taskId: task.id, columnId: task.column_id },
     });
   }
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ task });
 });
 
@@ -243,6 +270,28 @@ export const deleteTask = asyncHandler(async (req, res) => {
     message: `${req.user.name} deleted "${rows[0].title}"`,
     metadata: { taskId: req.params.taskId },
   });
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ success: true });
+});
+
+// Get all tasks assigned to the current user across all boards
+export const getMyTasks = asyncHandler(async (req, res) => {
+  const { rows } = await query(
+    `SELECT t.*, 
+            b.title AS board_title, 
+            b.color AS board_color, 
+            c.title AS status,
+            a.name AS assignee_name,
+            a.email AS assignee_email,
+            a.avatar_url AS assignee_avatar
+     FROM tasks t
+     JOIN boards b ON b.id = t.board_id
+     JOIN columns c ON c.id = t.column_id
+     LEFT JOIN users a ON a.id = t.assignee_id
+     LEFT JOIN board_members bm ON bm.board_id = b.id AND bm.user_id = $1
+     WHERE t.assignee_id = $1 AND (b.owner_id = $1 OR bm.user_id = $1)
+     ORDER BY t.due_date ASC NULLS LAST, t.updated_at DESC`,
+    [req.user.id],
+  );
+  res.json({ tasks: rows });
 });
