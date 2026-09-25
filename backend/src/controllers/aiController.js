@@ -3,11 +3,13 @@ import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { emitToBoard, logActivity } from "../realtime/index.js";
 import * as aiService from "../services/aiService.js";
+import { safeDel } from "../utils/cache.js";
+import { aiQueue } from "../services/queue.js";
 
 /*
   Generate tasks from a goal.
-  If no 'col' is provided, returns suggestions as a preview.
-  If 'col' is provided, inserts tasks into that column and broadcasts.
+  If async=true is provided, delegates to BullMQ worker queue and returns 202 Accepted.
+  Otherwise processes synchronously.
 */
 export const generateTasks = asyncHandler(async (req, res) => {
   const goal = (req.body.goal || "").trim();
@@ -15,6 +17,29 @@ export const generateTasks = asyncHandler(async (req, res) => {
 
   // clamping
   const count = Math.min(Math.max(parseInt(req.body.count, 10) || 6, 1), 15);
+  const boardId = req.board?.id || req.body.boardId;
+  const useQueue = req.query.async === "true" || req.body.async === true;
+
+  // Asynchronous queue mode
+  if (useQueue && req.body.column_id && boardId) {
+    try {
+      const job = await aiQueue.add("generate-tasks", {
+        goal,
+        count,
+        boardId,
+        columnId: req.body.column_id,
+        userId: req.user?.id,
+        userName: req.user?.name,
+      });
+      return res.status(202).json({
+        queued: true,
+        jobId: job.id,
+        message: "AI generation queued in background",
+      });
+    } catch (queueErr) {
+      console.warn("[BullMQ] Failed to enqueue, falling back to sync:", queueErr.message);
+    }
+  }
 
   // Always get suggestions from AI first
   const suggestions = await aiService.generateTasks(goal, count);
@@ -79,9 +104,12 @@ export const generateTasks = asyncHandler(async (req, res) => {
     // returning the raw row is usually fine unless we need assignee joins.
     createdTasks.push(rows[0]);
 
-    // Broadcast event
-    emitToBoard(boardId, "tasks:created", rows[0]);
+    // Broadcast event to board
+    emitToBoard(boardId, "task:created", rows[0]);
   }
+
+  // Invalidate Redis board cache so future fetches see newly created tasks
+  await safeDel(`board:${boardId}`);
 
   // Log activity
   if (req.user) {
