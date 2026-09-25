@@ -14,10 +14,11 @@ export const validate = (schema) => (req, res, next) => {
   } catch (error) {
     // We use instanceof ZodError to check: "Was this error thrown by Zod because the data was bad?"
     if (error instanceof ZodError) {
-      // If validation fails, return 400 Bad Request with formatted error messages
+      const firstError = error.errors[0]?.message || "Validation Error";
       return res.status(400).json({
         success: false,
-        message: "Validation Error",
+        error: firstError,
+        message: firstError,
         errors: error.errors.map(err => ({
           field: err.path.join('.'),
           message: err.message
