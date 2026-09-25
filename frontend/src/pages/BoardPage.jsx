@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Sparkles, FileText, Users, Activity, Search, ChevronLeft } from "lucide-react";
@@ -19,6 +19,7 @@ import MembersModal from "../components/board/MembersModal";
 import AIGenerateModal from "../components/ai/AIGenerateModal";
 import AISummaryModal from "../components/ai/AISummaryModal";
 import ActivityFeed from "../components/ActivityFeed";
+import LiveCursors from "../components/board/LiveCursors";
 
 const BoardPage = () => {
   const { boardId } = useParams();
@@ -48,6 +49,18 @@ const BoardPage = () => {
       return true;
     });
   }, [b.tasks, filterPriority, filterAssignee, search]);
+
+  const lastEmitRef = useRef(0);
+  const handleMouseMove = useCallback(
+    (e) => {
+      const now = Date.now();
+      if (now - lastEmitRef.current > 50) {
+        lastEmitRef.current = now;
+        b.updateCursor?.(e.clientX, e.clientY);
+      }
+    },
+    [b]
+  );
 
   const handleBreakdown = async (task) => {
     try {
@@ -157,7 +170,8 @@ const BoardPage = () => {
       </div>
 
       {/* Board */}
-      <div className="flex-1 overflow-hidden pt-4">
+      <div className="relative flex-1 overflow-hidden pt-4" onMouseMove={handleMouseMove}>
+        <LiveCursors cursors={b.cursors} />
         {b.loading ? (
           <div className="flex gap-4 px-6">
             {[0, 1, 2, 3].map((i) => <ColumnSkeleton key={i} />)}
