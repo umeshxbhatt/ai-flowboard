@@ -1,4 +1,4 @@
-import { pubClient } from "../socket/index.js";
+import { safeGet, safeSet, safeDel } from "../utils/cache.js";
 import { query, withTransaction } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -62,16 +62,21 @@ export const createBoard = asyncHandler(async (req, res) => {
 export const getBoard = asyncHandler(async (req, res) => {
   const boardId = req.board.id;
 
-  // check if the board is already in Redis RAM!
-  const cachedBoard = await pubClient.get(`board:${boardId}`);
+  // Check if the board is already in Redis RAM!
+  const cachedBoard = await safeGet(`board:${boardId}`);
 
   if (cachedBoard) {
-    console.log("CACHE HIT 🚀");
-    // It's in RAM! Parse the JSON and return it instantly.
-    return res.status(200).json(JSON.parse(cachedBoard));
+    try {
+      const data = JSON.parse(cachedBoard);
+      // Inject the current user's role dynamically! (Do NOT rely on cached role)
+      return res.status(200).json({
+        ...data,
+        role: req.board.role,
+      });
+    } catch {
+      // If parsing fails for any reason, continue to fetch from DB
+    }
   }
-
-  console.log("CACHE MISS 📭");
 
   // Fetch board, columns, tasks, and members in parallel using Promise.all for efficiency
   const [boardRes, columnsRes, tasksRes, membersRes] = await Promise.all([
@@ -99,18 +104,22 @@ export const getBoard = asyncHandler(async (req, res) => {
       [boardId],
     ),
   ]);
+
+  // Notice: role is intentionally NOT included in boardData stored in Redis!
   const boardData = {
     board: boardRes.rows[0],
     columns: columnsRes.rows,
     tasks: tasksRes.rows,
     members: membersRes.rows,
-    role: req.board.role,
-  }
+  };
 
   // store in redis RAM for 1 hour
-  await pubClient.setEx(`board:${boardId}`, 3600, JSON.stringify(boardData));
+  await safeSet(`board:${boardId}`, 3600, JSON.stringify(boardData));
 
-  res.status(200).json(boardData);
+  res.status(200).json({
+    ...boardData,
+    role: req.board.role,
+  });
 });
 
 // Update Board - edits the title, description & color
@@ -127,7 +136,7 @@ export const updateBoard = asyncHandler(async (req, res) => {
     [req.board.id, title ?? null, description ?? null, color ?? null],
   );
   emitToBoard(req.board.id, "board:updated", rows[0]);
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ board: rows[0] });
 });
 
@@ -137,7 +146,7 @@ export const deleteBoard = asyncHandler(async (req, res) => {
     throw ApiError.forbidden("Only the owner can delete this board");
   await query("DELETE FROM boards WHERE id = $1", [req.board.id]);
   emitToBoard(req.board.id, "board:deleted", { id: req.board.id });
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ success: true });
 });
 
@@ -188,7 +197,7 @@ export const addMember = asyncHandler(async (req, res) => {
     metadata: { memberId: user.id },
   });
 
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.status(201).json({ member: { ...user, role } });
 });
 
@@ -205,6 +214,6 @@ export const removeMember = asyncHandler(async (req, res) => {
     [req.board.id, userId],
   );
 
-  await pubClient.del(`board:${req.board.id}`);
+  await safeDel(`board:${req.board.id}`);
   res.json({ success: true });
 });
