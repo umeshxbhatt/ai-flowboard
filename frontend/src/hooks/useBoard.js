@@ -16,6 +16,7 @@ export const useBoard = (boardId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [presence, setPresence] = useState([]);
+  const [cursors, setCursors] = useState({});
 
   const upsertTask = useCallback((task) => {
     setTasks((prev) => {
@@ -70,7 +71,20 @@ export const useBoard = (boardId) => {
     const onPresenceSync = ({ users }) => setPresence(users || []);
     const onPresenceJoin = ({ user }) =>
       setPresence((p) => (p.find((u) => u.id === user.id) ? p : [...p, user]));
-    const onPresenceLeave = ({ user }) => setPresence((p) => p.filter((u) => u.id !== user.id));
+    const onPresenceLeave = ({ user }) => {
+      setPresence((p) => p.filter((u) => u.id !== user.id));
+      setCursors((prev) => {
+        const next = { ...prev };
+        delete next[user.id];
+        return next;
+      });
+    };
+    const onCursorUpdate = ({ user, x, y }) => {
+      setCursors((prev) => ({
+        ...prev,
+        [user.id]: { x, y, user, lastUpdate: Date.now() },
+      }));
+    };
 
     socket.on("task:created", onCreated);
     socket.on("task:updated", onUpdated);
@@ -83,6 +97,7 @@ export const useBoard = (boardId) => {
     socket.on("presence:sync", onPresenceSync);
     socket.on("presence:join", onPresenceJoin);
     socket.on("presence:leave", onPresenceLeave);
+    socket.on("presence_cursor_update", onCursorUpdate);
 
     return () => {
       socket.emit("board:leave", boardId);
@@ -97,7 +112,9 @@ export const useBoard = (boardId) => {
       socket.off("presence:sync", onPresenceSync);
       socket.off("presence:join", onPresenceJoin);
       socket.off("presence:leave", onPresenceLeave);
+      socket.off("presence_cursor_update", onCursorUpdate);
       setPresence([]);
+      setCursors({});
     };
   }, [boardId, upsertTask, removeTaskLocal]);
 
@@ -202,10 +219,18 @@ export const useBoard = (boardId) => {
     [boardId]
   );
 
+  const updateCursor = useCallback(
+    (x, y) => {
+      const socket = connectSocket();
+      socket.emit("presence_cursor", { boardId, x, y });
+    },
+    [boardId]
+  );
+
   return {
-    board, columns, tasks, members, role, loading, error, presence,
+    board, columns, tasks, members, role, loading, error, presence, cursors,
     setBoard, setMembers,
     createTask, updateTask, deleteTask, moveTask, upsertTask,
-    addColumn, renameColumn, deleteColumn,
+    addColumn, renameColumn, deleteColumn, updateCursor,
   };
 };

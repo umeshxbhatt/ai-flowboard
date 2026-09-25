@@ -59,6 +59,7 @@ export const authApi = {
 
 export const userApi = {
   search: (q) => api.get("/users/search", { params: { q } }).then((r) => r.data.users),
+  workspace: () => api.get("/users/workspace").then((r) => r.data.members),
 };
 
 export const boardApi = {
@@ -83,6 +84,7 @@ export const columnApi = {
 };
 
 export const taskApi = {
+  my: () => api.get("/tasks/my").then((r) => r.data.tasks),
   list: (boardId, params) =>
     api.get(`/boards/${boardId}/tasks`, { params }).then((r) => r.data.tasks),
   create: (boardId, data) =>
