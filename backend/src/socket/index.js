@@ -11,12 +11,15 @@ import { createAdapter } from "@socket.io/redis-adapter";
 export const pubClient = createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
 const subClient = pubClient.duplicate();
 
+pubClient.on("error", (err) => console.warn("Redis pubClient error:", err.message));
+subClient.on("error", (err) => console.warn("Redis subClient error:", err.message));
+
 // Connect the clients
 Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-  console.log("🚀 Redis adapter connected to Socket.io")
+  console.log("🚀 Redis adapter connected to Socket.io");
 }).catch((err) => {
-  console.log("Redis connection failed:", err);
-})
+  console.warn("Redis connection failed, continuing without Redis adapter:", err.message);
+});
 
 // Helper function to check if a user has access to a board
 // (Mimics the logic from src/middleware/boardAccess.js)
@@ -97,14 +100,14 @@ export const initSocket = (server) => {
 
         const sockets = await io.in(room).fetchSockets();
         const seen = new Set([user.id]);
-        const viewes = [];
+        const viewers = [];
         for (const s of sockets) {
           const u = s.data?.user;
           if (!u || seen.has(u.id)) continue;
           seen.add(u.id);
-          viewes.push({ id: u.id, name: u.name });
+          viewers.push({ id: u.id, name: u.name });
         }
-        socket.emit('presence:sync', { boardId, users: viewes });
+        socket.emit("presence:sync", { boardId, users: viewers });
 
         if (ack) ack({ ok: true });
       } catch (error) {
@@ -115,9 +118,9 @@ export const initSocket = (server) => {
 
     socket.on("board:leave", (boardId) => {
       socket.leave(boardRoom(boardId));
-      socket.to(boardRoom(boardId)).emit('presence:leave', {
+      socket.to(boardRoom(boardId)).emit("presence:leave", {
         user: { id: user.id, name: user.name },
-        boardId
+        boardId,
       });
     });
 
@@ -129,10 +132,11 @@ export const initSocket = (server) => {
       });
     });
 
-    socket.on("disconnect", () => {
+    // Use disconnecting so we can inspect socket.rooms before socket leaves them
+    socket.on("disconnecting", () => {
       for (const room of socket.rooms) {
         if (room === socket.id) continue;
-        socket.to(room).emit('presence:leave', {
+        socket.to(room).emit("presence:leave", {
           user: { id: user.id, name: user.name },
         });
       }
