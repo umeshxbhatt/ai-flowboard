@@ -18,6 +18,23 @@ const createBoardSchema = z.object({
     color: z.string().regex(/^#([0-9a-f]{3}){1,2}$/i, "Invalid hex color").optional()
   })
 });
+
+const createColumnSchema = z.object({
+  body: z.object({
+    title: z.string().min(1, "Column title is required").max(100),
+  })
+});
+
+const createTaskSchema = z.object({
+  body: z.object({
+    column_id: z.string().uuid("Invalid column id"),
+    title: z.string().min(1, "Task title is required").max(200),
+    description: z.string().max(2000).optional().nullable(),
+    priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+    due_date: z.string().optional().nullable(),
+    assignee_id: z.string().uuid().optional().nullable(),
+  })
+});
 import * as boardController from "../controllers/boardController.js";
 import * as columnController from "../controllers/columnController.js";
 import * as taskController from "../controllers/taskController.js";
@@ -43,13 +60,13 @@ router.post("/:boardId/members", requireBoardAccess, boardController.addMember);
 router.delete("/:boardId/members/:userId", requireBoardAccess, boardController.removeMember);
 
 // Columns
-router.post("/:boardId/columns", requireBoardAccess, columnController.createColumn);
+router.post("/:boardId/columns", requireBoardAccess, validate(createColumnSchema), columnController.createColumn);
 router.patch("/:boardId/columns/:columnId", requireBoardAccess, columnController.updateColumn);
 router.delete("/:boardId/columns/:columnId", requireBoardAccess, columnController.deleteColumn);
 
 // Tasks
 router.get("/:boardId/tasks", requireBoardAccess, taskController.listTasks);
-router.post("/:boardId/tasks", requireBoardAccess, taskController.createTask);
+router.post("/:boardId/tasks", requireBoardAccess, validate(createTaskSchema), taskController.createTask);
 router.patch("/:boardId/tasks/:taskId", requireBoardAccess, taskController.updateTask);
 router.patch("/:boardId/tasks/:taskId/move", requireBoardAccess, taskController.moveTask);
 router.delete("/:boardId/tasks/:taskId", requireBoardAccess, taskController.deleteTask);
