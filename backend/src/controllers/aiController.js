@@ -50,14 +50,13 @@ export const generateTasks = asyncHandler(async (req, res) => {
   }
 
   // Save mode (column specified)
-  const boardId = req.board?.id || req.body.boardId;
   if (!boardId) {
     throw ApiError.badRequest("Board context is required when a column is provided");
   }
 
   // Confirm column belongs to the board
   const colRes = await query(
-    "SELECT id FROM columns WHERE id = $1 AND board_id = $2",
+    "SELECT id, title FROM columns WHERE id = $1 AND board_id = $2",
     [req.body.column_id, boardId]
   );
   if (!colRes.rows.length) {
