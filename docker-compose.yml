@@ -1,5 +1,15 @@
 services:
   # use postgres container for local database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: flowboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
@@ -17,12 +27,14 @@ services:
       - "5050:5050"
     environment:
       - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:mysecretpassword@postgres:5432/flowboard
     env_file:
       - ./backend/.env
     depends_on:
       redis:
         condition: service_started
-    # Mount local code for hot-reloading
+      postgres:
+        condition: service_started
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -46,3 +58,4 @@ services:
 
 volumes:
   redis_data:
+  postgres_data:
